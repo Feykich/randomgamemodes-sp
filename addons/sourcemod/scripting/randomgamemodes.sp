@@ -40,7 +40,6 @@ public Plugin myinfo =
 
 public void OnPluginStart()
 {
-	RegConsoleCmd("sm_g", CheckMenu);
 	RegAdminCmd("sm_random", CheckMenu, ADMFLAG_KICK);
 	
 	cvGravityValue = CreateConVar("sm_gravityvalue", "300", "Sets value of gravity for random mode", FCVAR_NOTIFY, true, 0.0, true, 9999.0);
