@@ -16,8 +16,8 @@ A simple plugin that makes the next round interesting.
           "sm_speedvaluenemesis"    "3" - Sets value of speed for Nemesis mode. (Affects as Mother Zombie)
 
           0 - Disable mode. 1 - Enable mode. It requires atleast 2 modes enabled to get it work.
-          "sm_randomgunsmode"  "1"
-          "sm_modelscalemode"  "1"
-          "sm_fastplaymode"    "1"
-          "sm_gravitymode"     "1"
-          "sm_nemesismode"     "1" 
+          "sm_randomgunsmode"  "1" - Random Guns
+          "sm_modelscalemode"  "1" - Model Scale
+          "sm_fastplaymode"    "1" - Fast Play
+          "sm_gravitymode"     "1" - Gravity
+          "sm_nemesismode"     "1" - Nemesis
