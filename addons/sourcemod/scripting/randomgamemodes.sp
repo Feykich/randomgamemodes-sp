@@ -264,9 +264,6 @@ public Action RoundEnd(Event event, const char[] name, bool dontBroadcast)
 				UnhookEvent("player_spawn", PlayerSpawn);
 				bHookPlayerSpawn = false;
 				bHookModelScale = false;
-				PrintToChatAll("Unhooked");
-				PrintToChatAll("Unhooked");
-				PrintToChatAll("Unhooked");
 				for (int i = 1; i <= MaxClients; i++)
 				{
 					if(!IsClientInGame(i)) // fix error
@@ -274,7 +271,6 @@ public Action RoundEnd(Event event, const char[] name, bool dontBroadcast)
 						continue;
 					}
 					SetEntPropFloat(i, Prop_Send, "m_flModelScale", 1.0);
-					PrintToChatAll("true");
 				}
 			}
 		}
