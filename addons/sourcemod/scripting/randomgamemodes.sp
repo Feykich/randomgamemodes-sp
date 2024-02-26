@@ -564,7 +564,7 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 	GetClientWeapon(client, sWeapon, sizeof(sWeapon));
 	if(StrContains(sWeapon, "knife", false))
 	{
-		ForcePlayerSuicide(attacker);
+		ForcePlayerSuicide(client);
 	}
 	return Plugin_Continue;
 }
