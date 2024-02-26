@@ -2,9 +2,9 @@
 
 A simple plugin that makes the next round interesting.
 
-Requirements:
-Zombie:Reloaded mode.
-Player model for this plugin. (That's for Nemesis mode)
+          Requirements:
+          Zombie:Reloaded mode.
+          Player model for this plugin. (That's for Nemesis mode)
 
 Installation:
 Plugin: addons/sourcemod/plugins folder
@@ -20,4 +20,4 @@ CVar Usage:
 "sm_modelscalemode" "1"
 "sm_fastplaymode" "1"
 "sm_gravitymode" "1"
-"sm_nemesismode" "1"
+"sm_nemesismode" "1" 
