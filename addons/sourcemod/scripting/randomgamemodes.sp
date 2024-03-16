@@ -15,7 +15,7 @@ Handle hTimerRepeat = INVALID_HANDLE, hFindConVar;
 int iCaseSelection;
 ConVar cvGravityValue, cvSpeedValue, cvSpeedValueNemesis;
 int icvGravityMode, icvFastPlayMode, icvNemesisMode, icvModelScaleMode, icvRandomGunsMode;
-char NemesisModelPath[PLATFORM_MAX_PATH], NemesisModel[128];
+char NemesisModelPath[PLATFORM_MAX_PATH], NemesisModel[256];
 
 static const char StringWeapons[][] = {
 	"weapon_glock", "weapon_usp", "weapon_p228",
@@ -464,7 +464,7 @@ void GravityMode()
 
 void NemesisMode()
 {
-	PrecacheModel(NemesisModelPath, false);
+	PrecacheModel(NemesisModel, false);
 	hFindConVar = FindConVar("zr_respawn");
 	float fSpeedValueNemesis = GetConVarFloat(cvSpeedValueNemesis);
 	for (int i = 1; i <= MaxClients; i++)
@@ -475,7 +475,7 @@ void NemesisMode()
 		}
 		if(IsPlayerAlive(i) && ZR_IsClientZombie(i))
 		{
-			SetEntityModel(i, NemesisModelPath);
+			SetEntityModel(i, NemesisModel);
 			SetEntPropFloat(i, Prop_Send, "m_flLaggedMovementValue", fSpeedValueNemesis);
 			SetConVarString(hFindConVar, "0", false, false);
 		}
@@ -491,7 +491,12 @@ void ConfigModel()
 	
 	if(!FileExists(NemesisModelPath))
 	{
-		SetFailState("Couldn't find file: 'configs/randomgames.cfg'");
+		SetFailState("Couldn't find file: %s", NemesisModelPath);
+		return;
+	}
+	if(!kv.ImportFromFile())
+	{
+		SetFailState("Couldn't import from File: %s", NemesisModelPath);
 		return;
 	}
 	kv.GetString("nemesis", NemesisModel, sizeof(NemesisModel));
