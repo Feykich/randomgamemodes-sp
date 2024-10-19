@@ -1,7 +1,7 @@
 #pragma semicolon 1
 
 #define PLUGIN_AUTHOR "Feykich, null138"
-#define PLUGIN_VERSION "2.0.1"
+#define PLUGIN_VERSION "2.2.0"
 
 #include <sourcemod>
 #include <sdktools>
@@ -10,12 +10,15 @@
 
 #pragma newdecls required
 
-bool bEnabledGame = false, bHookPlayerSpawn, bHookWeaponFire, bHookModelScale, bHookFastPlay;
+int iCaseSelection; //i2Modes, dumbInt2modes;
 Handle hTimerRepeat = INVALID_HANDLE, hFindConVar;
-int iCaseSelection;
-ConVar cvGravityValue, cvSpeedValue, cvSpeedValueNemesis;
-int icvGravityMode, icvFastPlayMode, icvNemesisMode, icvModelScaleMode, icvRandomGunsMode;
 char NemesisModelPath[PLATFORM_MAX_PATH], NemesisModel[256];
+
+bool bEnabledGame, bHookPlayerSpawn, bHookWeaponFire, bHookModelScale, bHookFastPlay, bDontChange; //b2Modes; // checking if everything is working to avoid errors and bugs
+bool bEnableGravityMode, bEnableFastPlayMode, bEnableNemesisMode, bEnableModelScaleMode, bEnableRandomGunsMode; // menu switchers
+
+ConVar cvGravityValue, cvSpeedValue, cvSpeedValueNemesis, cvModelScaleValue, cvFloatGravityValue, cvRandomGunsTimer; // settings
+ConVar cvGravityMode, cvFastPlayMode, cvNemesisMode, cvModelScaleMode, cvRandomGunsMode; // cvar switchers
 
 static const char StringWeapons[][] = {
 	"weapon_glock", "weapon_usp", "weapon_p228",
@@ -34,7 +37,7 @@ public Plugin myinfo =
 	author = PLUGIN_AUTHOR,
 	description = "The name of this plugin is the answer",
 	version = PLUGIN_VERSION,
-	url = "https://steamcommunity.com/id/zombiefeyk159753/",
+	url = "https://steamcommunity.com/id/feykich/",
 	url = "https://steamcommunity.com/id/null138/"
 };
 
@@ -42,30 +45,28 @@ public void OnPluginStart()
 {
 	RegAdminCmd("sm_random", CheckMenu, ADMFLAG_KICK);
 	
-	cvGravityValue = CreateConVar("sm_gravityvalue", "300", "Sets value of gravity for random mode", FCVAR_NOTIFY, true, 0.0, true, 9999.0);
-	cvSpeedValue = CreateConVar("sm_speedvalue", "2", "Sets value of speed for random mode", FCVAR_NOTIFY, true, 1.0, true, 10.0);
-	cvSpeedValueNemesis = CreateConVar("sm_speedvaluenemesis", "3", "Sets value of speed for random mode", FCVAR_NOTIFY, true, 0.1, true, 999.0);
+	cvGravityValue = 		CreateConVar("sm_servergravityvalue", 	"300", 	"Sets value of 'sv_gravity' for Gravity mode", FCVAR_NOTIFY, true, 0.0, true, 9999.0);
+	cvSpeedValue = 			CreateConVar("sm_speedvalue", 			"2.0", 	"Sets value of speed for Fast Play mode",	FCVAR_NOTIFY, true, 0.1, true, 10.0);
+	cvSpeedValueNemesis = 	CreateConVar("sm_speedvaluenemesis", 	"3.0", 	"Sets the value of speed mother zombies for Nemesis mode", FCVAR_NOTIFY, true, 0.1, true, 999.0);
+	cvModelScaleValue = 	CreateConVar("sm_modelscalevalue", 		"0.5", 	"Sets models scale value for Model Scale mode", FCVAR_NOTIFY, true, 0.1, true, 30.0);
+	cvFloatGravityValue = 	CreateConVar("sm_gravityvalue", 		"0.5", 	"Sets value of gravity for Fast Play mode", FCVAR_NOTIFY, true, 0.1, true, 100.0);
+	cvRandomGunsTimer = 	CreateConVar("sm_randomgunstimer", 		"60.0", "Sets number of seconds for Random Guns countdown", FCVAR_NOTIFY, true, 1.0, true, 999.0);
 	
-	ConVar cvar;
-	cvar = CreateConVar("sm_randomgunsmode", "1", "0 - Disable mode. 1 - Enable Mode", FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	icvRandomGunsMode = cvar.IntValue;
-	cvar.AddChangeHook(RandomGunsModeValue);
 	
-	cvar = CreateConVar("sm_modelscalemode", "1", "0 - Disable mode. 1 - Enable mode", FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	icvModelScaleMode = cvar.IntValue;
-	cvar.AddChangeHook(ModelScaleModeValue);
+	cvRandomGunsMode = CreateConVar("sm_randomgunsmode", "1", "0 - Disable mode. 1 - Enable Mode");
+	cvRandomGunsMode.AddChangeHook(RandomGunsModeValue);
 	
-	cvar = CreateConVar("sm_fastplaymode", "1", "0 - Disable mode. 1 - Enable Mode", FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	icvFastPlayMode = cvar.IntValue;
-	cvar.AddChangeHook(FastPlayModeValue);
+	cvModelScaleMode = CreateConVar("sm_modelscalemode", "1", "0 - Disable mode. 1 - Enable mode");
+	cvModelScaleMode.AddChangeHook(ModelScaleModeValue);
 	
-	cvar = CreateConVar("sm_gravitymode", "1", "0 - Disable mode. 1 - Enable mode", FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	icvGravityMode = cvar.IntValue;
-	cvar.AddChangeHook(GravityModeValue);
+	cvFastPlayMode = CreateConVar("sm_fastplaymode", "1", "0 - Disable mode. 1 - Enable Mode");
+	cvFastPlayMode.AddChangeHook(FastPlayModeValue);
 	
-	cvar = CreateConVar("sm_nemesismode", "1", "0 - Disable mode. 1 - Enable Mode", FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	icvNemesisMode = cvar.IntValue;
-	cvar.AddChangeHook(NemesisModeValue);
+	cvGravityMode = CreateConVar("sm_gravitymode", "1", "0 - Disable mode. 1 - Enable mode");
+	cvGravityMode.AddChangeHook(GravityModeValue);
+	
+	cvNemesisMode = CreateConVar("sm_nemesismode", "1", "0 - Disable mode. 1 - Enable Mode");
+	cvNemesisMode.AddChangeHook(NemesisModeValue);
 	
 	
 	BuildPath(Path_SM, NemesisModelPath, sizeof(NemesisModelPath), "configs/randomgames.cfg");
@@ -89,10 +90,22 @@ public void MenuRandomGames(int client)
 	
 	char sbuffer[32];
 	
-	menu.SetTitle("Settings Random Modes\n");
+	menu.SetTitle("Settings Random Modes \n \n");
 	
-	Format(sbuffer, 32, "Enable Random [%c]", bEnabledGame ? 'X':'-');
+	Format(sbuffer, 32, "Enable Random [%c] \n \n", bEnabledGame ? 'X':'-');
 	menu.AddItem("1", sbuffer);
+	Format(sbuffer, 32, "Enable Random Guns Mode [%c]", bEnableRandomGunsMode ? 'X':'-');
+	menu.AddItem("2", sbuffer);
+	Format(sbuffer, 32, "Enable Model Scale Mode [%c]", bEnableModelScaleMode ? 'X':'-');
+	menu.AddItem("3", sbuffer);
+	Format(sbuffer, 32, "Enable Fast Play Mode [%c]", bEnableFastPlayMode ? 'X':'-');
+	menu.AddItem("4", sbuffer);
+	Format(sbuffer, 32, "Enable Gravity Mode [%c]", bEnableGravityMode ? 'X':'-');
+	menu.AddItem("5", sbuffer);
+	Format(sbuffer, 32, "Enable Nemesis mode [%c] \n \n", bEnableNemesisMode ? 'X':'-');
+	menu.AddItem("6", sbuffer);
+	//Format(sbuffer, 32, "Allow 2 modes in one round? [%c]", b2Modes ? 'X':'-');
+	//menu.AddItem("7", sbuffer);
 	
 	menu.Display(client, 30);
 }
@@ -101,17 +114,43 @@ int RandomMenu_Handler(Menu menu, MenuAction action, int client, int choice)
 {
 	if(action == MenuAction_Select)
 	{
-		choice++;
-		switch(choice)
+		char list[64];
+		menu.GetItem(choice, list, sizeof(list));
+		if(StrEqual(list, "1"))
 		{
-			case 1:
-			{
-				bEnabledGame = !bEnabledGame;
-				PrintToChatAll("[ZR] Random Games %sabled", bEnabledGame ? "en" : "dis");
-				LogMessage("[ZR Randomizer] ADMIN %N Toggled random games", client);
-				ConfigModel();
-			}
+			bEnabledGame = !bEnabledGame;
+			PrintToChatAll("[ZR Randomizer] Random Games %sabled by %N", bEnabledGame ? "en" : "dis", client);
+			LogMessage("[ZR Randomizer] ADMIN %N Toggled random games", client);
+			ConfigModel();
 		}
+		if(StrEqual(list, "2"))
+		{
+			bEnableRandomGunsMode = !bEnableRandomGunsMode;
+		}
+		if(StrEqual(list, "3"))
+		{
+			bEnableModelScaleMode = !bEnableModelScaleMode;
+		}
+		if(StrEqual(list, "4"))
+		{
+			bEnableFastPlayMode = !bEnableFastPlayMode;
+		}
+		if(StrEqual(list, "5"))
+		{
+			bEnableGravityMode = !bEnableGravityMode;
+		}
+		if(StrEqual(list, "6"))
+		{
+			bEnableNemesisMode = !bEnableNemesisMode;
+		}
+		/*
+		if(StrEqual(list, "7"))
+		{
+			CreateTimer(0.0, dumbfunction, TIMER_DATA_HNDL_CLOSE);
+			b2Modes = !b2Modes;
+		}
+		*/
+		MenuRandomGames(client);
 	}
 	else if(action == MenuAction_End)
 	{
@@ -119,89 +158,101 @@ int RandomMenu_Handler(Menu menu, MenuAction action, int client, int choice)
 	}
 }
 
-void CheckConVarValue()
+public Action CheckConVarValue()
 {
 	static int LastRandom;
 	if(bEnabledGame == true)
 	{
 		int count;
-		if(icvRandomGunsMode)
+		if(bEnableRandomGunsMode)
 		{
 			count++;
 		}
-		if(icvModelScaleMode)
+		if(bEnableModelScaleMode)
 		{
 			count++;
 		}
-		if(icvFastPlayMode)
+		if(bEnableFastPlayMode)
 		{
 			count++;
 		}
-		if(icvGravityMode)
+		if(bEnableGravityMode)
 		{
 			count++;
 		}
-		if(icvNemesisMode)
+		if(bEnableNemesisMode)
 		{
 			count++;
 		}
 		if(count < 2)
 		{
-			PrintToChatAll("[Randomizer] WARNING Modes are disabled by CVar. Please enable at least 2 (TWO) modes to continue.");
-			return;
+			PrintToChatAll("[ZR Randomizer] WARNING Modes are disabled by Menu settings. Please enable at least 2 (TWO) modes to continue.");
+			return Plugin_Handled;
 		}
+		bool choosen;
 		iCaseSelection = GetRandomInt(1, 5);
 		if(LastRandom != iCaseSelection)
 		{
-			bool choosen;
 			switch(iCaseSelection)
 			{
 				case 1:
 				{
-					if(icvRandomGunsMode)
+					if(bEnableRandomGunsMode)
 					{
 						choosen = true;
-						randomGuns();
+						
 						hFindConVar = FindConVar("zr_weapons_zmarket");
+						
+						int value = GetConVarInt(hFindConVar);
+						if(value == 0)
+						{
+							bDontChange = true; // just in case if server's setting of "zr_weapons_zmarket" is set to 0
+						}
+						
 						SetConVarString(hFindConVar, "0", false, false);
-						HookEvent("weapon_fire", WeaponFire); bHookWeaponFire = true; // fix error
-						PrintToChatAll("[Randomizer] Mode for this round: Random equipped guns! (Every 60 sec. new weapon)");
+						randomGuns();
+						
+						float fRandomGunsTimer = GetConVarFloat(cvRandomGunsTimer);
+						PrintToChatAll("[ZR Randomizer] Mode for this round: Random equipped guns! (Every %.f sec. new weapon)", fRandomGunsTimer);
 					}
 				}
 				case 2:
 				{
-					if(icvModelScaleMode)
+					if(bEnableModelScaleMode)
 					{
 						choosen = true;
 						SetModelScale();
-						PrintToChatAll("[Randomizer] Mode for this round: Modified size players' model!");
+						PrintToChatAll("[ZR Randomizer] Mode for this round: Modified size players' model!");
 					}
 				}
 				case 3:
 				{
-					if(icvFastPlayMode)
+					if(bEnableFastPlayMode)
 					{
 						choosen = true;
+						
 						FastPlayMode();
-						PrintToChatAll("[Randomizer] Mode for this round: High Speed + Low Gravity Zombies and Infinity Ammo!");
+						PrintToChatAll("[ZR Randomizer] Mode for this round: High Speed + Low Gravity Zombies and Infinity Ammo!");
 					}
 				}
 				case 4:
 				{
-					if(icvGravityMode)
+					if(bEnableGravityMode)
 					{
 						choosen = true;
+						
 						GravityMode();
-						PrintToChatAll("[Randomizer] Mode for this round: Low Gravity!");
+						PrintToChatAll("[ZR Randomizer] Mode for this round: Modified Gravity!");
+						//PrintToChatAll("%i", i2Modes);
 					}
 				}
 				case 5:
 				{
-					if(icvNemesisMode)
+					if(bEnableNemesisMode)
 					{
 						choosen = true;
 						NemesisMode();
-						PrintToChatAll("[Randomizer] Mode for this round: The zombies are now become Nemesis!");
+						PrintToChatAll("[ZR Randomizer] Mode for this round: The zombies are now become Nemesis!");
 					}
 				}
 			}
@@ -213,11 +264,42 @@ void CheckConVarValue()
 		else if(LastRandom == iCaseSelection)
 		{
 			CheckConVarValue();
-			PrintToChatAll("[Randomizer] Repeat slection");
+			PrintToChatAll("[ZR Randomizer] Repeat selection");
 		}
+		LastRandom = iCaseSelection;
+		
+		//if(b2Modes)
+		//{
+		//	b2Modes = false;
+		//	CheckConVarValue();
+		//	PrintToChatAll("true randomize");
+		//}
 	}
-	LastRandom = iCaseSelection;
+	
+	//if(dumbInt2modes == 1)
+	//{
+	//	CreateTimer(0.1, dumbfunction, TIMER_DATA_HNDL_CLOSE); // horrible.. this fixes spamming issue
+	//}
+	//PrintToChatAll("%i", dumbInt2modes);
+	//PrintToChatAll("%i", i2Modes);
+	
+	
+	return Plugin_Handled;
 }
+
+/*
+public Action dumbfunction(Handle timer)
+{
+	if(b2Modes)
+	{
+		dumbInt2modes = 1;
+	}
+	else
+	{
+		dumbInt2modes = 0;
+	}
+}
+*/
 
 /*
 	Event
@@ -226,7 +308,7 @@ public Action RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	if(bEnabledGame == true)
 	{
-		PrintToChatAll("[Randomizer] Game mode will be started when become the first infection!");
+		PrintToChatAll("[ZR Randomizer] Game mode will be started when become the first infection!");
 	}
 	return Plugin_Continue;
 }
@@ -239,7 +321,7 @@ public Action ZR_OnClientInfect(int &client, int &attacker, bool &motherInfect, 
 	}
 }
 
-void OnNextTick(any shit)
+void OnNextTick(any shit) // ignore this warning
 {
 	CheckConVarValue();
 }
@@ -248,14 +330,26 @@ public Action RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	if(bEnabledGame == true)
 	{
+		/*
+		if(b2Modes)
+		{
+			
+		}
+		*/
+		
+		//PrintToChatAll("%i", i2Modes);
 		if(iCaseSelection == 1)
 		{
 			hFindConVar = FindConVar("zr_weapons_zmarket");
-			SetConVarString(hFindConVar, "1", false, false);
-			if(hTimerRepeat != null)
+			if(hTimerRepeat)
 			{
 				KillTimer(hTimerRepeat);
 			}
+			if(bDontChange) // if true then we pass
+			{
+				return Plugin_Handled; // hold up!
+			}
+			SetConVarString(hFindConVar, "1", false, false);
 		}
 		if(iCaseSelection == 2)
 		{
@@ -274,7 +368,7 @@ public Action RoundEnd(Event event, const char[] name, bool dontBroadcast)
 				}
 			}
 		}
-		else if(iCaseSelection == 3)
+		if(iCaseSelection == 3)
 		{
 			if(bHookWeaponFire)
 			{
@@ -283,12 +377,12 @@ public Action RoundEnd(Event event, const char[] name, bool dontBroadcast)
 				bHookFastPlay = false;
 			}
 		}
-		else if(iCaseSelection == 4)
+		if(iCaseSelection == 4)
 		{
 			hFindConVar = FindConVar("sv_gravity");
 			SetConVarString(hFindConVar, "800", false, false);
 		}
-		else if(iCaseSelection == 5)
+		if(iCaseSelection == 5)
 		{
 			hFindConVar = FindConVar("zr_respawn");
 			SetConVarString(hFindConVar, "1", false, false);
@@ -314,13 +408,15 @@ public Action PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
 	int client = GetClientOfUserId(GetEventInt(event, "userid"));
 	if(iCaseSelection == 2 && bHookModelScale)
 	{
-		SetEntPropFloat(client, Prop_Send, "m_flModelScale", 0.5);
+		float fModelScaleValue = GetConVarFloat(cvModelScaleValue);
+		SetEntPropFloat(client, Prop_Send, "m_flModelScale", fModelScaleValue);
 	}
-	else if(iCaseSelection == 3 && ZR_IsClientZombie(client) && bHookFastPlay)
+	if(iCaseSelection == 3 && ZR_IsClientZombie(client) && bHookFastPlay)
 	{
 		float fSpeedValue = GetConVarFloat(cvSpeedValue);
+		float fFloatGravityValue = GetConVarFloat(cvFloatGravityValue);
 		SetEntPropFloat(client, Prop_Send, "m_flLaggedMovementValue", fSpeedValue);
-		SetEntityGravity(client, 0.5);
+		SetEntityGravity(client, fFloatGravityValue);
 	}
 	return Plugin_Continue;
 }
@@ -378,7 +474,8 @@ void randomGuns()
 				randomGuns();
 			}
 		}
-		hTimerRepeat = CreateTimer(60.0, TimerHandle);
+		float fRandomGunsTimer = GetConVarFloat(cvRandomGunsTimer);
+		hTimerRepeat = CreateTimer(fRandomGunsTimer, TimerHandle);
 	}
 	iLastWeapon = iRandom;
 }
@@ -392,26 +489,26 @@ void OnNextFrame0(any datapack)
 	data.ReadString(sWeapon, 32);
 	int iGiveWeapon = GivePlayerItem(client, sWeapon);
 	EquipPlayerWeapon(client, iGiveWeapon);
-	//CreateTimer(1.0, tGiveAmmo, iGiveWeapon);
+	CreateTimer(0.5, tGiveAmmo, iGiveWeapon);
 }
 
-/*
-public Action tGiveAmmo(Handle timer, int iGiveWeapon) *this piece of shit doesn't work, uncomment if you know what to do.*
+// code shared from https://github.com/srcdslab/sm-plugin-ExtraCommands/blob/master/addons/sourcemod/scripting/ExtraCommands.sp#L493
+public Action tGiveAmmo(Handle timer, int iGiveWeapon)
 {
+	int client = GetEntPropEnt(iGiveWeapon, Prop_Data, "m_hOwner");
 	int primaryAmmoType = GetEntProp(iGiveWeapon, Prop_Data, "m_iPrimaryAmmoType");
 	int secondaryAmmoType = GetEntProp(iGiveWeapon, Prop_Data, "m_iSecondaryAmmoType");
-	int client = GetEntPropEnt(iGiveWeapon, Prop_Data, "m_hOwner");
-	int iAmmo = 9999;
+	int iAmmo = 2000;
 	if(primaryAmmoType != -1)
 	{
-		SetEntData(client, primaryAmmoType, iAmmo);
+		SetEntProp(client, Prop_Send, "m_iAmmo", iAmmo, _, primaryAmmoType);
 	}
 	if(secondaryAmmoType != -1)
 	{
-		SetEntData(client, secondaryAmmoType, iAmmo);
+		SetEntProp(client, Prop_Send, "m_iAmmo", iAmmo, _, secondaryAmmoType);
 	}
 }
-*/
+
 public Action TimerHandle(Handle timer)
 {
 	randomGuns();
@@ -421,6 +518,7 @@ void SetModelScale()
 {
 	HookEvent("player_spawn", PlayerSpawn); bHookPlayerSpawn = true; // fix error
 	bHookModelScale = true;
+	float fModelScaleValue = GetConVarFloat(cvModelScaleValue);
 	for (int i = 1; i <= MaxClients; i++)
 	{
 		if(!IsClientInGame(i)) // fix error
@@ -429,7 +527,7 @@ void SetModelScale()
 		}
 		if(IsPlayerAlive(i))
 		{
-			SetEntPropFloat(i, Prop_Send, "m_flModelScale", 0.5);
+			SetEntPropFloat(i, Prop_Send, "m_flModelScale", fModelScaleValue);
 		}
 	}
 }
@@ -440,6 +538,7 @@ void FastPlayMode()
 	HookEvent("weapon_fire", WeaponFire); bHookWeaponFire = true; // fix error
 	bHookFastPlay = true;
 	float fSpeedValue = GetConVarFloat(cvSpeedValue);
+	float fFloatGravityValue = GetConVarFloat(cvFloatGravityValue);
 	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(!IsClientInGame(i)) // fix error
@@ -449,7 +548,7 @@ void FastPlayMode()
 		if(IsPlayerAlive(i) && ZR_IsClientZombie(i))
 		{
 			SetEntPropFloat(i, Prop_Send, "m_flLaggedMovementValue", fSpeedValue);
-			SetEntityGravity(i, 0.5);
+			SetEntityGravity(i, fFloatGravityValue);
 		}
 	}
 }
@@ -464,7 +563,6 @@ void GravityMode()
 
 void NemesisMode()
 {
-	PrecacheModel(NemesisModel, false);
 	hFindConVar = FindConVar("zr_respawn");
 	float fSpeedValueNemesis = GetConVarFloat(cvSpeedValueNemesis);
 	for (int i = 1; i <= MaxClients; i++)
@@ -494,14 +592,48 @@ void ConfigModel()
 		SetFailState("Couldn't find file: %s", NemesisModelPath);
 		return;
 	}
-	if(!kv.ImportFromFile())
+	if(!kv.ImportFromFile(NemesisModelPath))
 	{
 		SetFailState("Couldn't import from File: %s", NemesisModelPath);
 		return;
 	}
-	kv.GetString("nemesis", NemesisModel, sizeof(NemesisModel));
 	
-	kv.GoBack();
+	if(kv.JumpToKey("modes", true)) // if the key is missing
+	{
+		kv.GetString("nemesis", NemesisModel, sizeof(NemesisModel));
+		
+		if(NemesisModel[0] == '\0') // empty string?
+		{
+			kv.SetString("nemesis", "insert your skin here");
+			
+			bEnabledGame = false;
+			PrintToChatAll("[ZR Randomizer] Detected missing key in the file. More details in Server console.");
+			LogError("[ZR Randomizer] Created new key in the file. Insert your model for Nemesis into this file: %s", NemesisModelPath);
+			
+			kv.Rewind();
+			kv.ExportToFile(NemesisModelPath);
+			
+			kv.Close();
+			return; // to prevent error invalid handle
+		}
+	}
+	
+	if(StrContains(NemesisModel, ".mdl", false) != -1)
+	{
+		if(!IsModelPrecached(NemesisModel))
+		{
+			PrecacheModel(NemesisModel, false);
+		}
+	}
+	else
+	{
+		bEnabledGame = false;
+		PrintToChatAll("[ZR Randomizer] Can't find nemesis model! Insert the skin via config. More details in Server console.");
+		PrintToChatAll("[ZR Randomizer] Disabling Randomizer.. After inserting, enable randomizer again through Menu.");
+		LogError("Couldn't find model in key 'nemesis' from file: %s", NemesisModelPath);
+	}
+	
+	kv.Close();
 }
 
 /*
@@ -509,41 +641,36 @@ void ConfigModel()
 */
 public void GravityModeValue(ConVar cvar, const char[] oldValue, const char[] newValue)
 {
-	icvGravityMode = cvar.IntValue;
-	
-	CheckConVarValue();
+	bEnableGravityMode = cvGravityMode.BoolValue;
 }
 
 public void ModelScaleModeValue(ConVar cvar, const char[] oldValue, const char[] newValue)
 {
-	icvModelScaleMode = cvar.IntValue;
-	
-	CheckConVarValue();
+	bEnableModelScaleMode = cvModelScaleMode.BoolValue;
 }
 
 public void FastPlayModeValue(ConVar cvar, const char[] oldValue, const char[] newValue)
 {
-	icvFastPlayMode = cvar.IntValue;
-	
-	CheckConVarValue();
+	bEnableFastPlayMode = cvFastPlayMode.BoolValue;
 }
 
 public void RandomGunsModeValue(ConVar cvar, const char[] oldValue, const char[] newValue)
 {
-	icvRandomGunsMode = cvar.IntValue;
-	
-	CheckConVarValue();
+	bEnableRandomGunsMode = cvRandomGunsMode.BoolValue;
 }
 
 public void NemesisModeValue(ConVar cvar, const char[] oldValue, const char[] newValue)
 {
-	icvNemesisMode = cvar.IntValue;
-	
-	CheckConVarValue();
+	bEnableNemesisMode = cvNemesisMode.BoolValue;
 }
 /*
 	End CVar
 */
+
+public void OnMapEnd()
+{
+	
+}
 
 public void OnClientPutInServer(int client)
 {
