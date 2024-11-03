@@ -1,7 +1,7 @@
 #pragma semicolon 1
 
 #define PLUGIN_AUTHOR "Feykich, null138"
-#define PLUGIN_VERSION "2.2.0"
+#define PLUGIN_VERSION "2.2.1"
 
 #include <sourcemod>
 #include <sdktools>
@@ -11,7 +11,7 @@
 #pragma newdecls required
 
 int iCaseSelection; //i2Modes, dumbInt2modes;
-Handle hTimerRepeat = INVALID_HANDLE, hFindConVar;
+Handle hTimerRepeat = null, hFindConVar;
 char NemesisModelPath[PLATFORM_MAX_PATH], NemesisModel[256];
 
 bool bEnabledGame, bHookPlayerSpawn, bHookWeaponFire, bHookModelScale, bHookFastPlay, bDontChange; //b2Modes; // checking if everything is working to avoid errors and bugs
@@ -189,10 +189,10 @@ public Action CheckConVarValue()
 			PrintToChatAll("[ZR Randomizer] WARNING Modes are disabled by Menu settings. Please enable at least 2 (TWO) modes to continue.");
 			return Plugin_Handled;
 		}
-		bool choosen;
 		iCaseSelection = GetRandomInt(1, 5);
 		if(LastRandom != iCaseSelection)
 		{
+			bool choosen;
 			switch(iCaseSelection)
 			{
 				case 1:
@@ -328,78 +328,76 @@ void OnNextTick(any shit) // ignore this warning
 
 public Action RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
-	if(bEnabledGame == true)
+	/*
+	if(b2Modes)
 	{
-		/*
-		if(b2Modes)
-		{
-			
-		}
-		*/
 		
-		//PrintToChatAll("%i", i2Modes);
-		if(iCaseSelection == 1)
+	}
+	*/
+	//PrintToChatAll("%i", i2Modes);
+	if(iCaseSelection == 1)
+	{
+		hFindConVar = FindConVar("zr_weapons_zmarket");
+		if(hTimerRepeat)
 		{
-			hFindConVar = FindConVar("zr_weapons_zmarket");
-			if(hTimerRepeat)
-			{
-				KillTimer(hTimerRepeat);
-			}
-			if(bDontChange) // if true then we pass
-			{
-				return Plugin_Handled; // hold up!
-			}
-			SetConVarString(hFindConVar, "1", false, false);
+			hTimerRepeat = null;
+			PrintToChatAll("Deleted Timer");
 		}
-		if(iCaseSelection == 2)
+		if(bDontChange) // if true then we pass
 		{
-			if(bHookPlayerSpawn)
-			{
-				UnhookEvent("player_spawn", PlayerSpawn);
-				bHookPlayerSpawn = false;
-				bHookModelScale = false;
-				for (int i = 1; i <= MaxClients; i++)
-				{
-					if(!IsClientInGame(i)) // fix error
-					{
-						continue;
-					}
-					SetEntPropFloat(i, Prop_Send, "m_flModelScale", 1.0);
-				}
-			}
+			return Plugin_Handled; // hold up!
 		}
-		if(iCaseSelection == 3)
+		SetConVarString(hFindConVar, "1", false, false);
+	}
+	if(iCaseSelection == 2)
+	{
+		if(bHookPlayerSpawn)
 		{
-			if(bHookWeaponFire)
-			{
-				UnhookEvent("weapon_fire", WeaponFire);
-				bHookWeaponFire = false;
-				bHookFastPlay = false;
-			}
-		}
-		if(iCaseSelection == 4)
-		{
-			hFindConVar = FindConVar("sv_gravity");
-			SetConVarString(hFindConVar, "800", false, false);
-		}
-		if(iCaseSelection == 5)
-		{
-			hFindConVar = FindConVar("zr_respawn");
-			SetConVarString(hFindConVar, "1", false, false);
-			for(int i = 1; i <= MaxClients; i++)
+			UnhookEvent("player_spawn", PlayerSpawn);
+			bHookPlayerSpawn = false;
+			bHookModelScale = false;
+			for (int i = 1; i <= MaxClients; i++)
 			{
 				if(!IsClientInGame(i)) // fix error
 				{
 					continue;
 				}
-				if(IsPlayerAlive(i) && ZR_IsClientZombie(i))
-				{
-					SetEntPropFloat(i, Prop_Send, "m_flLaggedMovementValue", 1.0);
-					SetEntityGravity(i, 1.0);
-				}
+				SetEntPropFloat(i, Prop_Send, "m_flModelScale", 1.0);
 			}
 		}
 	}
+	if(iCaseSelection == 3)
+	{
+		if(bHookWeaponFire)
+		{
+			UnhookEvent("weapon_fire", WeaponFire);
+			bHookWeaponFire = false;
+			bHookFastPlay = false;
+		}
+	}
+	if(iCaseSelection == 4)
+	{
+		hFindConVar = FindConVar("sv_gravity");
+		SetConVarString(hFindConVar, "800", false, false);
+	}
+	if(iCaseSelection == 5)
+	{
+		hFindConVar = FindConVar("zr_respawn");
+		SetConVarString(hFindConVar, "1", false, false);
+		for(int i = 1; i <= MaxClients; i++)
+		{
+			if(!IsClientInGame(i)) // fix error
+			{
+				continue;
+			}
+			if(IsPlayerAlive(i) && ZR_IsClientZombie(i))
+			{
+				SetEntPropFloat(i, Prop_Send, "m_flLaggedMovementValue", 1.0);
+				SetEntityGravity(i, 1.0);
+			}
+		}
+	}
+	iCaseSelection = 0;
 	return Plugin_Handled;
 }
 
@@ -431,7 +429,7 @@ void randomGuns()
 {
 	static int iLastWeapon;
 	int iRandom;
-	iRandom = GetRandomInt(1, 24);
+	iRandom = GetRandomInt(0, sizeof(StringWeapons) -1);
 	if(iLastWeapon != iRandom)
     {
 		for (int i = 1; i <= MaxClients; i++)
@@ -669,7 +667,7 @@ public void NemesisModeValue(ConVar cvar, const char[] oldValue, const char[] ne
 
 public void OnMapEnd()
 {
-	
+	bEnabledGame = false;
 }
 
 public void OnClientPutInServer(int client)
