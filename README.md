@@ -2,6 +2,8 @@
 
 A simple plugin that makes the next round interesting.
 
+          Usage command: !random
+
           Requirements:
           Zombie:Reloaded mode.
           Player model for this plugin. (That's for Nemesis mode)
